@@ -1,0 +1,3 @@
+QDRANT_URL=https:// ... .aws.cloud.qdrant.io
+QDRANT_API_KEY=your api key
+GROQ_API_KEY=your api key

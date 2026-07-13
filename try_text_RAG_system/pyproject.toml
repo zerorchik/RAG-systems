@@ -1,0 +1,13 @@
+[project]
+name = "try-rag-system"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.14"
+dependencies = [
+    "groq>=1.5.0",
+    "langchain>=1.3.13",
+    "python-dotenv>=1.2.2",
+    "qdrant-client>=1.18.0",
+    "sentence-transformers>=5.6.0",
+]

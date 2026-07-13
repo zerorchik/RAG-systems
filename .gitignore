@@ -1,0 +1,22 @@
+# Ігнорувати все
+*
+
+# Але залишити .gitignore
+!.gitignore
+
+# І залишити три папки
+!qdrant_vanille/
+!try_text_RAG_system/
+!try_pdf_RAG_system/
+
+# Дозволити їхній вміст
+!qdrant_vanille/**
+!try_text_RAG_system/**
+!try_pdf_RAG_system/**
+
+# Усередині них все одно ігнорувати
+**/.env
+**/.venv/
+**/__pycache__/
+**/.idea/
+*.pyc
