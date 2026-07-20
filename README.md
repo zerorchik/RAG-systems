@@ -56,22 +56,3 @@ uv sync
 cp .env.example .env                # fill in your API keys
 uv run main.py
 ```
-
-## What I learned
-
-- How chunking strategy directly affects retrieval quality — fixed-size chunking can silently cut a relevant answer in half between two chunks.
-- Why cosine similarity is the standard distance metric for text embeddings.
-- The gap between "retrieval found the right document" and "retrieval found the right *chunk*" — these are not the same problem.
-- Why aggregation-style questions ("how many documents mention X") are a poor fit for plain semantic search — retrieval finds relevant chunks, not exhaustive counts.
-- Trade-offs between manual implementation (every design decision visible, slower to build) and framework abstractions (faster, but more assumptions baked in).
-
-## Roadmap / not yet implemented
-
-- [ ] Hybrid search (BM25 + vector search)
-- [ ] Reranking with a cross-encoder
-- [ ] Evaluation with RAGAS (faithfulness, context precision/recall)
-- [ ] FastAPI wrapper + deployment
-
-## License
-
-MIT
