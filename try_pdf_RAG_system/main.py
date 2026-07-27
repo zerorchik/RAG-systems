@@ -102,6 +102,30 @@ def load_documents(folder: Path) -> dict[str, str]:
     return documents
 
 
+def should_retrieve(groq_client: Groq, query: str) -> bool:
+    """Визначає, чи потребує запит пошуку в базі документів.
+
+    Це окремий, "дешевий" виклик LLM (можна навіть швидшу модель,
+    llama-3.1-8b-instant) перед основним retrieval-пайплайном.
+    """
+    prompt = f"""Визнач, чи потребує наступне питання пошуку інформації
+    в базі документів про лабораторні роботи, чи на нього можна відповісти
+    без будь-якого додаткового контексту (привітання, загальні питання, математика).
+    
+    Питання: {query}
+    
+    Відповідай ЛИШЕ одним словом: "так" або "ні"."""
+
+    response = groq_client.chat.completions.create(
+        model="llama-3.1-8b-instant",  # швидша модель для простої класифікації
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0,
+    )
+
+    decision = response.choices[0].message.content.strip().lower()
+    return decision.startswith("так")
+
+
 def chunk_documents(documents: dict[str, str]) -> list[dict]:
     """Розбиває кожен документ на chunks, зберігаючи джерело в metadata.
 
@@ -135,17 +159,18 @@ def chunk_documents(documents: dict[str, str]) -> list[dict]:
 
 
 def build_vector_store(
-        client: QdrantClient,
-        embedder: SentenceTransformer,
-        chunks: list[dict],         # тепер список словників, а не рядків
+    client: QdrantClient,
+    embedder: SentenceTransformer,
+    chunks: list[dict],
 ) -> None:
-    """Створює колекцію в Qdrant і заливає туди embeddings усіх chunks."""
     vector_size = embedder.get_embedding_dimension()
 
-    # Якщо уже існує колекція, видаляємо стару і створює нову.
-    # Зручно для навчання/демо, щоб не накопичувати дублікати при повторних запусках.
-    if client.collection_exists(COLLECTION_NAME):
+    # get_collections() — базовий, давно стабільний ендпоінт,
+    # надійніший за collection_exists() на нестандартних серверних версіях
+    existing_collections = [c.name for c in client.get_collections().collections]
+    if COLLECTION_NAME in existing_collections:
         client.delete_collection(COLLECTION_NAME)
+
     client.create_collection(
         collection_name=COLLECTION_NAME,
         vectors_config=models.VectorParams(size=vector_size, distance=models.Distance.COSINE),
@@ -158,7 +183,7 @@ def build_vector_store(
         models.PointStruct(
             id=str(uuid.uuid4()),
             vector=vector,
-            payload=chunk,          # {"text": ..., "source": ...} — уже готовий словник
+            payload=chunk,
         )
         for chunk, vector in zip(chunks, vectors)
     ]
@@ -255,10 +280,21 @@ def main() -> None:
     print(f'Vector store заповнено')
 
     query = input('\nЩо хочеш запитати? ')
-    relevant_chunks = retrieve_relevant_chunks(qdrant_client, embedder, query)
-    print(f'Знайдено {len(relevant_chunks)} релевантних chunks')
 
-    answear = generate_answear(qroq_client, query, relevant_chunks)
+    # 2. Router: вирішуємо, чи потрібен взагалі retrieval для цього запиту
+    if should_retrieve(qroq_client, query):
+        print('Router: retrieval потрібен')
+        relevant_chunks = retrieve_relevant_chunks(qdrant_client, embedder, query)
+        print(f'Знайдено {len(relevant_chunks)} релевантних chunks')
+        answear = generate_answear(qroq_client, query, relevant_chunks)
+    else:
+        print('Router: retrieval не потрібен, відповідаю напряму')
+        response = qroq_client.chat.completions.create(
+            model=GROQ_MODEL_NAME,
+            messages=[{"role": "user", "content": query}],
+        )
+        answear = response.choices[0].message.content
+
     print(f'\nВідповідь: {answear}')
 
 
